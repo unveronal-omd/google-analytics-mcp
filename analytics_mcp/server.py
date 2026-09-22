@@ -69,10 +69,10 @@ if __name__ == "__main__":
             run_http_server()
         else:
             run_server()
-except KeyboardInterrupt:
-    print(f"\nMCP Server ({transport}) stopped by user.", file=sys.stderr)
-except Exception:
-    print(f"MCP Server ({transport}) encountered an error:", file=sys.stderr)
-    traceback.print_exc()
-finally:
-    print(f"MCP Server ({transport}) process exiting.", file=sys.stderr)
+    except KeyboardInterrupt:
+        print(f"\nMCP Server ({transport}) stopped by user.", file=sys.stderr)
+    except Exception:
+        print(f"MCP Server ({transport}) encountered an error:", file=sys.stderr)
+        traceback.print_exc()
+    finally:
+        print(f"MCP Server ({transport}) process exiting.", file=sys.stderr)
