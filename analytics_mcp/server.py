@@ -17,6 +17,8 @@
 """Entry point for the Google Analytics MCP server."""
 
 import asyncio
+import os
+import uvicorn
 import sys
 import analytics_mcp.coordinator as coordinator
 from mcp.server.lowlevel import NotificationOptions
