@@ -55,6 +55,12 @@ def run_server():
     asyncio.run(run_server_async())
 
 
+def run_http_server():
+    """Runs the MCP server over Streamable HTTP."""
+    port = int(os.environ.get("PORT", "8080"))
+    uvicorn.run(http_app, host="0.0.0.0", port=port)
+
+
 if __name__ == "__main__":
     try:
         run_server()
