@@ -25,6 +25,9 @@ import mcp.server.stdio
 import mcp.server
 import traceback
 
+# Streamable HTTP application for remote MCP clients.
+http_app = coordinator.app.streamable_http_app()
+
 
 async def run_server_async():
     """Runs the MCP server over standard I/O."""
