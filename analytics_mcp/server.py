@@ -63,7 +63,12 @@ def run_http_server():
 
 if __name__ == "__main__":
     try:
-        run_server()
+        transport = os.environ.get("MCP_TRANSPORT", "stdio")
+
+        if transport == "http":
+            run_http_server()
+        else:
+            run_server()
     except KeyboardInterrupt:
         print("\nMCP Server (stdio) stopped by user.", file=sys.stderr)
     except Exception:
