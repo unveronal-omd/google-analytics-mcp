@@ -26,9 +26,40 @@ from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.server
 import traceback
+import contextlib
+from collections.abc import AsyncIterator
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.types import Receive, Scope, Send
 
-# Streamable HTTP application for remote MCP clients.
-http_app = coordinator.app.streamable_http_app()
+# Streamable HTTP session manager for remote MCP clients.
+session_manager = StreamableHTTPSessionManager(
+    app=coordinator.app,
+    event_store=None,
+    json_response=False,
+    stateless=False,
+)
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: Starlette) -> AsyncIterator[None]:
+    """Manage the Streamable HTTP session manager lifecycle."""
+    async with session_manager.run():
+        yield
+
+
+async def handle_mcp(scope: Scope, receive: Receive, send: Send) -> None:
+    """Handle Streamable HTTP MCP requests."""
+    await session_manager.handle_request(scope, receive, send)
+
+
+http_app = Starlette(
+    routes=[
+        Mount("/mcp", app=handle_mcp),
+    ],
+    lifespan=lifespan,
+)
 
 
 async def run_server_async():
