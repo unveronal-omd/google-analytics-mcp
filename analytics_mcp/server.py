@@ -32,6 +32,15 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.types import Receive, Scope, Send
+from pydantic import AnyHttpUrl
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
+
+
+AUTH0_ISSUER = "https://dev-qcfguwv7uyogdyng.us.auth0.com/"
+MCP_AUDIENCE = "https://ga4-mcp-server-180590969315.europe-west3.run.app/mcp/"
+REQUIRED_SCOPE = "use:mcp"
+
 
 # Streamable HTTP session manager for remote MCP clients.
 session_manager = StreamableHTTPSessionManager(
