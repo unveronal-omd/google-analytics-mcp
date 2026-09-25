@@ -35,11 +35,68 @@ from starlette.types import Receive, Scope, Send
 from pydantic import AnyHttpUrl
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
+import jwt
+from jwt import PyJWKClient
+from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
+from mcp.server.auth.middleware.bearer_auth import (
+    BearerAuthBackend,
+    RequireAuthMiddleware,
+)
+from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
+from mcp.server.auth.routes import (
+    build_resource_metadata_url,
+    create_protected_resource_routes,
+)
 
 
 AUTH0_ISSUER = "https://dev-qcfguwv7uyogdyng.us.auth0.com/"
 MCP_AUDIENCE = "https://ga4-mcp-server-180590969315.europe-west3.run.app/mcp/"
 REQUIRED_SCOPE = "use:mcp"
+
+
+auth_settings = AuthSettings(
+    issuer_url=AnyHttpUrl(AUTH0_ISSUER),
+    resource_server_url=AnyHttpUrl(MCP_AUDIENCE),
+    required_scopes=[REQUIRED_SCOPE],
+)
+
+
+class Auth0TokenVerifier(TokenVerifier):
+    """Verify Auth0-issued JWT access tokens."""
+
+    def __init__(self):
+        self.jwks_client = PyJWKClient(
+            f"{AUTH0_ISSUER}.well-known/jwks.json"
+        )
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        try:
+            signing_key = self.jwks_client.get_signing_key_from_jwt(token)
+
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                audience=MCP_AUDIENCE,
+                issuer=AUTH0_ISSUER,
+            )
+
+            scopes = payload.get("scope", "").split()
+
+            if REQUIRED_SCOPE not in scopes:
+                return None
+
+            return AccessToken(
+                token=token,
+                client_id=payload.get("sub", ""),
+                scopes=scopes,
+                expires_at=payload.get("exp"),
+            )
+
+        except Exception as exc:
+            print(f"Auth0 token validation failed: {exc}", file=sys.stderr)
+            return None
 
 
 # Streamable HTTP session manager for remote MCP clients.
@@ -63,9 +120,31 @@ async def handle_mcp(scope: Scope, receive: Receive, send: Send) -> None:
     await session_manager.handle_request(scope, receive, send)
 
 
+resource_metadata_url = build_resource_metadata_url(
+    auth_settings.resource_server_url
+)
+
+protected_mcp = RequireAuthMiddleware(
+    handle_mcp,
+    required_scopes=auth_settings.required_scopes or [],
+    resource_metadata_url=resource_metadata_url,
+)
+
 http_app = Starlette(
     routes=[
-        Mount("/mcp", app=handle_mcp),
+        *create_protected_resource_routes(
+            resource_url=auth_settings.resource_server_url,
+            authorization_servers=[auth_settings.issuer_url],
+            scopes_supported=auth_settings.required_scopes,
+        ),
+        Mount("/mcp", app=protected_mcp),
+    ],
+    middleware=[
+        Middleware(
+            AuthenticationMiddleware,
+            backend=BearerAuthBackend(Auth0TokenVerifier()),
+        ),
+        Middleware(AuthContextMiddleware),
     ],
     lifespan=lifespan,
 )
