@@ -15,6 +15,7 @@ dependencies = [
     "google-adk>=1.29.0",
     "httpx>=0.28.1",
     "uvicorn>=0.30.0",
+    "PyJWT[crypto]>=2.10.0,<3",
 ]
 keywords = ["google analytics", "analytics", "mcp", "ga4"]
 classifiers = [
