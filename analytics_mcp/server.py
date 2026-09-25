@@ -176,8 +176,8 @@ http_app = Starlette(
             authorization_servers=[auth_settings.issuer_url],
             scopes_supported=auth_settings.required_scopes,
         ),
-        Mount("/mcp", app=protected_mcp),
-    ],
+        Route("/mcp", endpoint=protected_mcp, methods=["GET", "POST", "DELETE"]),
+        Route("/mcp/", endpoint=protected_mcp, methods=["GET", "POST", "DELETE"]),    ],
     middleware=[
         Middleware(
             AuthenticationMiddleware,
