@@ -31,7 +31,9 @@ from collections.abc import AsyncIterator
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, Response
+from starlette.requests import Request
+import httpx
 from urllib.parse import urlencode
 from starlette.types import Receive, Scope, Send
 from pydantic import AnyHttpUrl
@@ -130,6 +132,31 @@ async def authorize_proxy(request):
     return RedirectResponse(auth0_authorize_url)
 
 
+async def token_proxy(request: Request):
+    """Forward OAuth token requests to Auth0."""
+    body = await request.body()
+
+    headers = {
+        "Content-Type": request.headers.get(
+            "content-type",
+            "application/x-www-form-urlencoded",
+        )
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{AUTH0_ISSUER}oauth/token",
+            content=body,
+            headers=headers,
+        )
+
+    return Response(
+        content=response.content,
+        status_code=response.status_code,
+        media_type=response.headers.get("content-type"),
+    )
+
+
 resource_metadata_url = build_resource_metadata_url(
     auth_settings.resource_server_url
 )
@@ -142,8 +169,9 @@ protected_mcp = RequireAuthMiddleware(
 
 http_app = Starlette(
     routes=[
-    Route("/authorize", endpoint=authorize_proxy, methods=["GET"]),
-    *create_protected_resource_routes(
+        Route("/authorize", endpoint=authorize_proxy, methods=["GET"]),
+        Route("/token", endpoint=token_proxy, methods=["POST"]),
+        *create_protected_resource_routes(
             resource_url=auth_settings.resource_server_url,
             authorization_servers=[auth_settings.issuer_url],
             scopes_supported=auth_settings.required_scopes,
