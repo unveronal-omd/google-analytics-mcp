@@ -30,7 +30,9 @@ import contextlib
 from collections.abc import AsyncIterator
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
-from starlette.routing import Mount
+from starlette.routing import Mount, Route
+from starlette.responses import RedirectResponse
+from urllib.parse import urlencode
 from starlette.types import Receive, Scope, Send
 from pydantic import AnyHttpUrl
 from mcp.server.auth.provider import AccessToken, TokenVerifier
@@ -121,6 +123,13 @@ async def handle_mcp(scope: Scope, receive: Receive, send: Send) -> None:
     await session_manager.handle_request(scope, receive, send)
 
 
+async def authorize_proxy(request):
+    """Redirect OAuth authorization requests to Auth0."""
+    params = dict(request.query_params)
+    auth0_authorize_url = f"{AUTH0_ISSUER}authorize?{urlencode(params)}"
+    return RedirectResponse(auth0_authorize_url)
+
+
 resource_metadata_url = build_resource_metadata_url(
     auth_settings.resource_server_url
 )
@@ -133,7 +142,8 @@ protected_mcp = RequireAuthMiddleware(
 
 http_app = Starlette(
     routes=[
-        *create_protected_resource_routes(
+    Route("/authorize", endpoint=authorize_proxy, methods=["GET"]),
+    *create_protected_resource_routes(
             resource_url=auth_settings.resource_server_url,
             authorization_servers=[auth_settings.issuer_url],
             scopes_supported=auth_settings.required_scopes,
