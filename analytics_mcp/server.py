@@ -59,6 +59,7 @@ auth_settings = AuthSettings(
     issuer_url=AnyHttpUrl(AUTH0_ISSUER),
     resource_server_url=AnyHttpUrl(MCP_AUDIENCE),
     required_scopes=[REQUIRED_SCOPE],
+    validate_token_resource=False,
 )
 
 
